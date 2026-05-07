@@ -30,6 +30,7 @@ jobs:
           secretKey: ${{ secrets.TENCENTCLOUD_SECRET_KEY }}
           envId: ${{ secrets.CLOUDBASE_ENV_ID }}
           region: ap-shanghai
+          staticSrcPath: frontend
 
       - name: 部署成功通知
         if: success()
