@@ -2,6 +2,13 @@
   "envId": "{{ENV_ID}}",
   "region": "ap-shanghai",
   "functionRoot": "backend",
+  "hosting": {
+    "outputPath": "frontend",
+    "ignore": [
+      "node_modules/**",
+      ".git/**"
+    ]
+  },
   "functions": [
     {
       "name": "ielt-mbti-api",
