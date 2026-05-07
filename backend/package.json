@@ -1,0 +1,21 @@
+{
+  "name": "ielt-mbti-backend",
+  "version": "1.0.0",
+  "description": "雅思MBTI测试后端服务",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": ["mbti", "ielts", "quiz", "personality-test"],
+  "author": "雷雨田",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2",
+    "uuid": "^9.0.0",
+    "exceljs": "^4.4.0",
+    "@cloudbase/node-sdk": "^2.4.0"
+  }
+}

@@ -1,0 +1,32 @@
+# ===== 依赖 =====
+node_modules/
+package-lock.json/
+
+# ===== 敏感配置（切勿上传）=====
+.env
+*.env
+
+# ===== 本地数据库文件 =====
+backend/data.json
+backend/data_backup*.json
+
+# ===== 日志文件 =====
+*.log
+logs/
+
+# ===== 临时文件 =====
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# ===== 构建产物 =====
+dist/
+build/
+*.xlsx
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo

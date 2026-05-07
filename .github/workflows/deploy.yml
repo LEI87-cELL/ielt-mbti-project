@@ -1,0 +1,36 @@
+name: 部署到 CloudBase
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: 部署到腾讯云 CloudBase
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: 安装依赖
+        run: cd backend && npm install
+
+      - name: 部署到 CloudBase
+        uses: TencentCloudBase/cloudbase-action@v1
+        with:
+          secretId: ${{ secrets.TENCENTCLOUD_SECRET_ID }}
+          secretKey: ${{ secrets.TENCENTCLOUD_SECRET_KEY }}
+          envId: ${{ secrets.CLOUDBASE_ENV_ID }}
+          region: ap-shanghai
+
+      - name: 部署成功通知
+        if: success()
+        run: echo "✅ 部署成功！"

@@ -1,0 +1,37 @@
+{
+  "envId": "{{ENV_ID}}",
+  "region": "ap-shanghai",
+  "functionRoot": "backend",
+  "functions": [
+    {
+      "name": "ielt-mbti-api",
+      "timeout": 10,
+      "envVariables": {
+        "NODE_ENV": "production",
+        "PORT": "3001",
+        "ADMIN_PASSWORD": "{{ADMIN_PASSWORD}}",
+        "RESET_PASSWORD": "{{RESET_PASSWORD}}",
+        "CLOUDBASE_ENV_ID": "{{ENV_ID}}"
+      },
+      "runtime": "Nodejs18.15",
+      "memorySize": 512,
+      "installDependency": true,
+      "handler": "server.main",
+      "events": [
+        {
+          "type": "apigw",
+          "config": {
+            "path": "/",
+            "method": "ANY"
+          }
+        }
+      ]
+    }
+  ],
+  "functionsIgnore": [
+    "node_modules/**",
+    ".env",
+    "data.json",
+    "*.log"
+  ]
+}
