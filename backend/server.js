@@ -303,9 +303,64 @@ loadLocalData();
 
 // ===== API 路由 =====
 
+// 0. 图形验证码
+app.get('/api/captcha', (req, res) => {
+    const captchaId = uuidv4();
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let text = '';
+    for (let i = 0; i < 4; i++) {
+        text += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    captchaCodes[captchaId] = { text: text.toUpperCase(), expiresAt: Date.now() + 5 * 60 * 1000 };
+
+    // 生成SVG图形验证码
+    const colors = ['#E53935', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA', '#00ACC1'];
+    const color = () => colors[Math.floor(Math.random() * colors.length)];
+    const noiseLines = Array.from({ length: 4 }, () => {
+        const x1 = Math.floor(Math.random() * 120);
+        const y1 = Math.floor(Math.random() * 40);
+        const x2 = Math.floor(Math.random() * 120);
+        const y2 = Math.floor(Math.random() * 40);
+        return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color()}" stroke-width="1" opacity="0.4"/>`;
+    }).join('');
+    const noiseDots = Array.from({ length: 20 }, () => {
+        const cx = Math.floor(Math.random() * 120);
+        const cy = Math.floor(Math.random() * 40);
+        return `<circle cx="${cx}" cy="${cy}" r="1" fill="${color()}" opacity="0.5"/>`;
+    }).join('');
+    const textSvg = text.split('').map((ch, i) => {
+        const x = 15 + i * 25;
+        const y = 28 + Math.floor(Math.random() * 8) - 4;
+        const rotate = Math.floor(Math.random() * 20) - 10;
+        return `<text x="${x}" y="${y}" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="${color()}" transform="rotate(${rotate}, ${x}, ${y})">${ch}</text>`;
+    }).join('');
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40" viewBox="0 0 120 40"><rect width="120" height="40" fill="#F5F0E6" rx="4"/>${noiseLines}${noiseDots}${textSvg}</svg>`;
+
+    res.json({ success: true, captchaId, captchaSvg: svg });
+});
+
 // 1. 发送注册验证码
 app.post('/api/send-code', async (req, res) => {
-    const { phone } = req.body;
+    const { phone, captchaId, captchaCode } = req.body;
+
+    // 验证图形验证码
+    if (!captchaId || !captchaCode) {
+        return res.json({ success: false, message: '请先完成图形验证码' });
+    }
+    if (!captchaCodes[captchaId]) {
+        return res.json({ success: false, message: '图形验证码已过期，请刷新' });
+    }
+    if (Date.now() > captchaCodes[captchaId].expiresAt) {
+        delete captchaCodes[captchaId];
+        return res.json({ success: false, message: '图形验证码已过期，请刷新' });
+    }
+    if (captchaCodes[captchaId].text !== captchaCode.toUpperCase()) {
+        delete captchaCodes[captchaId];
+        return res.json({ success: false, message: '图形验证码错误' });
+    }
+    delete captchaCodes[captchaId];
+
     if (!/^1[3-9]\d{9}$/.test(phone)) {
         return res.json({ success: false, message: '请输入正确的手机号' });
     }
@@ -319,7 +374,7 @@ app.post('/api/send-code', async (req, res) => {
     verificationCodes[phone] = { code, expiresAt: Date.now() + 5 * 60 * 1000 };
     
     console.log(`📱 注册验证码 ${phone}: ${code}（生产环境应接入短信服务）`);
-    res.json({ success: true, message: '验证码已发送（控制台查看）', code });
+    res.json({ success: true, message: '验证码已发送（控制台查看）', debugCode: code });
 });
 
 // 2. 注册
@@ -370,7 +425,25 @@ app.post('/api/register', async (req, res) => {
 
 // 2-1. 发送登录验证码
 app.post('/api/send-login-code', (req, res) => {
-    const { phone } = req.body;
+    const { phone, captchaId, captchaCode } = req.body;
+
+    // 验证图形验证码
+    if (!captchaId || !captchaCode) {
+        return res.json({ success: false, message: '请先完成图形验证码' });
+    }
+    if (!captchaCodes[captchaId]) {
+        return res.json({ success: false, message: '图形验证码已过期，请刷新' });
+    }
+    if (Date.now() > captchaCodes[captchaId].expiresAt) {
+        delete captchaCodes[captchaId];
+        return res.json({ success: false, message: '图形验证码已过期，请刷新' });
+    }
+    if (captchaCodes[captchaId].text !== captchaCode.toUpperCase()) {
+        delete captchaCodes[captchaId];
+        return res.json({ success: false, message: '图形验证码错误' });
+    }
+    delete captchaCodes[captchaId];
+
     if (!/^1[3-9]\d{9}$/.test(phone)) {
         return res.json({ success: false, message: '请输入正确的手机号' });
     }
@@ -379,7 +452,7 @@ app.post('/api/send-login-code', (req, res) => {
     loginVerificationCodes[phone] = { code, expiresAt: Date.now() + 5 * 60 * 1000 };
     
     console.log(`📱 登录验证码 ${phone}: ${code}（生产环境应接入短信服务）`);
-    res.json({ success: true, message: '验证码已发送（控制台查看）', code });
+    res.json({ success: true, message: '验证码已发送（控制台查看）', debugCode: code });
 });
 
 // 2-2. 登录
