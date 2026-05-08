@@ -307,6 +307,11 @@
     </div>
 
     <script>
+        // ===== API 地址配置（自动适配本地/云端）=====
+        const API_BASE = window.location.origin.includes('localhost') 
+            ? 'http://localhost:3001/api' 
+            : 'https://mbti-test-254690-6-1322548451.sh.run.tcloudbase.com/api';
+
         // ==================== 泡泡选择页面逻辑 ====================
         const schoolData = [
             // 澳门
@@ -489,10 +494,7 @@
             }
         }
 
-        // ==================== 原有代码 ====================
-        const API_BASE = window.location.origin.includes('localhost') 
-            ? 'http://localhost:3001/api' 
-            : 'https://mbti-test-254690-6-1322548451.sh.run.tcloudbase.com/api';
+        // ==================== 核心变量与数据 ====================
         let currentUser = null;
         let scores = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
         let currentQ = 0, selectedAnswers = new Array(8).fill(null), quizActive = false;
@@ -758,8 +760,9 @@
 
         function logout() { currentUser = null; localStorage.removeItem('ielt_user'); showToast('已退出登录'); showStart(); }
 
-        // 图形验证码
+        // ==================== 注册验证码逻辑 ====================
         let currentCaptchaId = '';
+        let countdownTimer = null;
         
         // 点击"获取验证码"按钮，显示图形验证码区域
         function showCaptchaInput() {
@@ -767,18 +770,14 @@
             const errDiv = document.getElementById('registerError');
             errDiv.style.display = 'none';
             
-            // 先验证手机号格式
             if (!/^1[3-9]\d{9}$/.test(phone)) {
                 errDiv.textContent = '请输入正确的11位手机号';
                 errDiv.style.display = 'block';
                 return;
             }
             
-            // 显示图形验证码区域
             document.getElementById('captchaGroup').style.display = 'block';
-            // 加载图形验证码
             refreshCaptcha();
-            // 更新按钮状态
             document.getElementById('showCaptchaBtn').disabled = true;
             document.getElementById('showCaptchaBtn').textContent = '已获取手机号';
             document.getElementById('showCaptchaBtn').style.background = '#ccc';
@@ -798,8 +797,6 @@
         }
         
         // 发送验证码
-        let countdownTimer = null;
-        
         async function sendVerificationCode() {
             const phone = document.getElementById('regPhone').value.trim();
             const captchaCode = document.getElementById('regCaptcha').value.trim();
@@ -807,7 +804,6 @@
             const errDiv = document.getElementById('registerError');
             errDiv.style.display = 'none';
             
-            // 验证图形验证码
             if (!captchaCode) {
                 errDiv.textContent = '请先输入图形验证码';
                 errDiv.style.display = 'block';
@@ -818,8 +814,6 @@
                 errDiv.style.display = 'block';
                 return;
             }
-            
-            // 验证手机号格式
             if (!/^1[3-9]\d{9}$/.test(phone)) {
                 errDiv.textContent = '请输入正确的11位手机号';
                 errDiv.style.display = 'block';
@@ -839,12 +833,10 @@
                 
                 if (data.success) {
                     showToast('📱 短信验证码已发送');
-                    // 开发模式：显示验证码方便测试
                     if (data.debugCode) {
                         document.getElementById('regCode').value = data.debugCode;
                         showToast(`🔑 测试验证码: ${data.debugCode}`);
                     }
-                    // 开始倒计时
                     let seconds = 60;
                     btn.disabled = true;
                     btn.style.background = '#ccc';
@@ -861,7 +853,6 @@
                 } else {
                     errDiv.textContent = data.message;
                     errDiv.style.display = 'block';
-                    // 刷新图形验证码
                     refreshCaptcha();
                     btn.disabled = false;
                     btn.textContent = '📨 重新发送';
@@ -874,6 +865,7 @@
             }
         }
 
+        // ==================== 登录/注册表单提交 ====================
         document.getElementById('loginForm').onsubmit = async (e) => {
             e.preventDefault();
             const phone = document.getElementById('loginPhone').value.trim();
@@ -890,23 +882,19 @@
                 const data = await res.json();
                 if (data.success) {
                     currentUser = data.user;
-                    currentUser.testCount = data.testCount || 0;  // 保存测试次数
+                    currentUser.testCount = data.testCount || 0;
                     localStorage.setItem('ielt_user', JSON.stringify(currentUser));
                     sucDiv.textContent = '登录成功！'; sucDiv.style.display = 'block';
                     
-                    // 根据测试次数决定跳转
                     const testCount = data.testCount || 0;
                     const allResults = data.allResults || [];
                     
                     setTimeout(() => {
                         if (testCount === 0) {
-                            // 0次测试 → 去泡泡选择页，可以开始第1次测试
                             showBubbleScreen();
                         } else if (testCount === 1) {
-                            // 1次测试 → 显示历史记录 + 可以做第2次
                             showHistoryWithRetest(allResults[0], allResults);
                         } else if (testCount >= 2) {
-                            // 2次或以上 → 只显示最近一次结果，提示次数已用完
                             showResultLimitReached(allResults[0]);
                         }
                     }, 1000);
@@ -924,13 +912,11 @@
             const sucDiv = document.getElementById('registerSuccess');
             errDiv.style.display = 'none'; sucDiv.style.display = 'none';
             
-            // 前端验证
             if (name.length < 2) { errDiv.textContent = '姓名至少需要2个字符'; errDiv.style.display = 'block'; return; }
             if (/^\d+$/.test(name)) { errDiv.textContent = '姓名不能全是数字'; errDiv.style.display = 'block'; return; }
             if (!/^1[3-9]\d{9}$/.test(phone)) { errDiv.textContent = '请输入正确的11位手机号'; errDiv.style.display = 'block'; return; }
             if (!verificationCode || verificationCode.length !== 6) { errDiv.textContent = '请先获取短信验证码并填入6位验证码'; errDiv.style.display = 'block'; return; }
             
-            // 检查是否已发送验证码（通过倒计时状态判断）
             const sendBtn = document.getElementById('sendCodeBtn');
             if (sendBtn && !sendBtn.disabled) {
                 errDiv.textContent = '请先点击「发送短信验证码」获取验证码';
@@ -942,28 +928,24 @@
                 const res = await fetch(`${API_BASE}/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, grade, phone, verificationCode }) });
                 const data = await res.json();
                 if (data.success) {
-                    // 注册成功，后端已返回用户信息，直接设置并跳转选学校
                     sucDiv.textContent = '注册成功！'; sucDiv.style.display = 'block';
                     if (countdownTimer) clearInterval(countdownTimer);
-                    // 自动登录（用手机号+验证码）
                     const loginRes = await fetch(`${API_BASE}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, verificationCode }) });
                     const loginData = await loginRes.json();
                     if (loginData.success) {
                         currentUser = loginData.user;
                         localStorage.setItem('ielt_user', JSON.stringify(currentUser));
                     } else {
-                        // 登录失败也能继续，currentUser 从注册返回里取
                         currentUser = data.user || { phone, name: data.name || name };
                         localStorage.setItem('ielt_user', JSON.stringify(currentUser));
                     }
                     showToast('注册成功！请选择心仪学校 ✈️');
-                    // showBubbleScreen() 内部已调用 hideAllScreens()，无需重复调用
                     setTimeout(() => { showBubbleScreen(); }, 800);
                 } else { errDiv.textContent = data.message; errDiv.style.display = 'block'; }
             } catch (err) { errDiv.textContent = '连接服务器失败'; errDiv.style.display = 'block'; }
         };
 
-        // 显示最近一次历史测试结果（旧函数，保留兼容）
+        // ==================== 历史结果相关 ====================
         function showHistoryResult(result) {
             if (!result) { showStart(); return; }
             resultDiv.innerHTML = `
@@ -983,7 +965,6 @@
             showResult();
         }
 
-        // 1次测试 → 显示历史记录 + 可以做第2次
         function showHistoryWithRetest(lastResult, allResults) {
             if (!lastResult) { showBubbleScreen(); return; }
             
@@ -1010,7 +991,6 @@
             showResult();
         }
 
-        // 2次或以上 → 只显示最近一次结果 + 提示次数已用完
         function showResultLimitReached(lastResult) {
             if (!lastResult) { showStart(); return; }
             
@@ -1041,7 +1021,6 @@
             showResult();
         }
 
-        // 开始第2次测试
         function startSecondTest() {
             if (!currentUser) {
                 showLogin();
@@ -1058,7 +1037,7 @@
             attachResultEvents();
         }
 
-        // 开启航班按钮：先确认身份，再选学校
+        // ==================== 答题逻辑 ====================
         document.getElementById('startBtn').onclick = () => {
             if (currentUser) {
                 showBubbleScreen();
@@ -1082,7 +1061,6 @@
             if (currentQ >= questions.length) { showResultPage(); return; }
             updateProgress();
             
-            // 控制返回按钮显示（第1题时隐藏）
             const backBtn = document.getElementById('backQuestionBtn');
             backBtn.style.display = currentQ === 0 ? 'none' : 'inline-block';
             
@@ -1115,7 +1093,6 @@
 
         function prevQuestion() {
             if (currentQ > 0) {
-                // 把上一题的分数减回去（因为点"下一题"时已经加过了）
                 const prevQ = currentQ - 1;
                 if (selectedAnswers[prevQ] !== null) {
                     const weight = questions[prevQ].weights[selectedAnswers[prevQ]];
@@ -1160,6 +1137,7 @@
             attachResultEvents();
         }
 
+        // ==================== 结果页面渲染 ====================
         function generateResultHTML(mbti, data) {
             const persona = getPersonaScores();
             const sorted = Object.entries(persona).sort((a, b) => b[1] - a[1]);
@@ -1173,7 +1151,6 @@
             };
             const pi = personaInfo[topP];
 
-            // 根据所选学校动态生成恭喜文案、推荐国家和结尾备注
             let congratsText = '';
             let recommendCountry = '';
             let recommendReason = '';
@@ -1198,7 +1175,6 @@
                 schoolGiftText = '';
             }
 
-            // 检查是否显示"重新测试"按钮（登录用户且测试次数<2才显示）
             let restartButtonHTML = '';
             if (!currentUser || !currentUser.testCount || currentUser.testCount < 2) {
                 restartButtonHTML = '<div class="restart-footer"><button class="btn-outline" id="restartBtn">🔄 重新测试</button></div>';
@@ -1236,20 +1212,18 @@
             document.getElementById('copyWechatBtn')?.addEventListener('click', () => { trackClick('baoban'); copyToClipboard('pppppeky'); showToast('✅ 微信号已复制'); });
             document.getElementById('shareWechatBtn')?.addEventListener('click', () => { copyToClipboard(`我的留学MBTI是「${currentMBTI}」，快来测测你的！✈️`); showToast('✅ 已复制'); });
             document.getElementById('copyResultBtn')?.addEventListener('click', () => { copyToClipboard(`【我的留学人格】${currentMBTI}`); showToast('✅ 已复制'); });
-            // 重新测试：先选心仪学校，再答题
             document.getElementById('restartBtn')?.addEventListener('click', () => { showBubbleScreen(); });
         }
 
+        // ==================== 后端交互 ====================
         async function submitTestResult(mbti, personaType) {
             try {
-                // 提交时带上用户选择的学校
                 const schoolName = selectedSchool?.name || '';
                 const res = await fetch(`${API_BASE}/submit-test`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: currentUser?.id || 'anonymous', mbti, scores, answers: selectedAnswers, personaType, country: currentData?.country || '', advice: currentData?.advice || '', userSchool: schoolName }) });
                 
                 const data = await res.json();
                 if (!data.success) {
                     showToast('⚠️ ' + data.message);
-                    // 如果次数已用完，显示限制页面
                     if (data.message.includes('次数已用完')) {
                         setTimeout(() => {
                             showResultLimitReachedFromSubmit();
@@ -1259,7 +1233,6 @@
             } catch (err) { console.error('保存失败:', err); }
         }
 
-        // 提交后次数用完，获取最新结果显示限制页面
         async function showResultLimitReachedFromSubmit() {
             if (!currentUser) return;
             
@@ -1293,10 +1266,7 @@
             });
         }
 
-        // ===== API 地址配置（自动适配本地/云端）=====
-   
-
-        
+        // ===== 启动 =====
         showStart();
     </script>
 </body>
