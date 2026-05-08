@@ -805,7 +805,7 @@ app.get('/api/admin/download/:fileName', adminAuth, (req, res) => {
 app.listen(PORT, () => {
     console.log(`\n${'='.repeat(60)}`);
     console.log(`🚀 留学航空MBTI后端服务启动成功！`);
-    console.log(`📍 服务地址: <ADDRESS_REMOVED>
+    console.log(`📍 服务地址: http://localhost:${PORT}`);
     console.log(`💾 数据库模式: ${USE_CLOUD_DB ? '☁️  CloudBase 云数据库' : '📝 本地 JSON 文件'}`);
     console.log(`${'='.repeat(60)}\n`);
 });
