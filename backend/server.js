@@ -75,13 +75,8 @@ if (!ADMIN_PASSWORD || !RESET_PASSWORD) {
   }
 }
 
-// ===== CORS 配置 - 允许所有来源 =====
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Password']
-}));
-
+// 中间件
+app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 
@@ -119,6 +114,7 @@ function saveLocalData() {
 
 // ===== 统一数据访问层 =====
 
+// 获取所有用户
 async function getUsers() {
     if (USE_CLOUD_DB) {
         const res = await cloudDB.collection('users').get();
@@ -128,6 +124,7 @@ async function getUsers() {
     }
 }
 
+// 根据ID获取用户
 async function getUserById(id) {
     if (USE_CLOUD_DB) {
         const res = await cloudDB.collection('users').where({ id }).get();
@@ -137,6 +134,7 @@ async function getUserById(id) {
     }
 }
 
+// 根据手机号获取用户
 async function getUserByPhone(phone) {
     if (USE_CLOUD_DB) {
         const res = await cloudDB.collection('users').where({ phone }).get();
@@ -146,6 +144,7 @@ async function getUserByPhone(phone) {
     }
 }
 
+// 添加用户
 async function addUser(user) {
     if (USE_CLOUD_DB) {
         await cloudDB.collection('users').add(user);
@@ -155,6 +154,7 @@ async function addUser(user) {
     }
 }
 
+// 更新用户
 async function updateUser(id, data) {
     if (USE_CLOUD_DB) {
         await cloudDB.collection('users').where({ id }).update(data);
@@ -167,6 +167,7 @@ async function updateUser(id, data) {
     }
 }
 
+// 删除用户
 async function deleteUser(id) {
     if (USE_CLOUD_DB) {
         await cloudDB.collection('users').where({ id }).remove();
@@ -176,6 +177,7 @@ async function deleteUser(id) {
     }
 }
 
+// 获取所有测试结果
 async function getTestResults() {
     if (USE_CLOUD_DB) {
         const res = await cloudDB.collection('testResults').get();
@@ -185,6 +187,7 @@ async function getTestResults() {
     }
 }
 
+// 添加测试结果
 async function addTestResult(result) {
     if (USE_CLOUD_DB) {
         await cloudDB.collection('testResults').add(result);
@@ -194,6 +197,7 @@ async function addTestResult(result) {
     }
 }
 
+// 删除测试结果
 async function deleteTestResult(id) {
     if (USE_CLOUD_DB) {
         await cloudDB.collection('testResults').where({ id }).remove();
@@ -203,12 +207,14 @@ async function deleteTestResult(id) {
     }
 }
 
+// 获取统计数据
 async function getStatistics() {
     if (USE_CLOUD_DB) {
         const res = await cloudDB.collection('statistics').get();
         if (res.data && res.data[0]) {
             return res.data[0];
         }
+        // 如果不存在则创建
         const defaultStats = { _id: 'stats', totalTests: 0, clickCount: 0, baobanClicks: 0, loginCount: 0 };
         await cloudDB.collection('statistics').add(defaultStats);
         return defaultStats;
@@ -217,6 +223,7 @@ async function getStatistics() {
     }
 }
 
+// 更新统计数据
 async function updateStatistics(data) {
     if (USE_CLOUD_DB) {
         const res = await cloudDB.collection('statistics').get();
@@ -231,16 +238,20 @@ async function updateStatistics(data) {
     }
 }
 
+// 重置所有数据
 async function resetAllData() {
     if (USE_CLOUD_DB) {
+        // 删除所有用户
         const users = await cloudDB.collection('users').get();
         for (const u of (users.data || [])) {
             await cloudDB.collection('users').where({ _id: u._id }).remove();
         }
+        // 删除所有测试结果
         const results = await cloudDB.collection('testResults').get();
         for (const r of (results.data || [])) {
             await cloudDB.collection('testResults').where({ _id: r._id }).remove();
         }
+        // 重置统计数据
         const stats = await cloudDB.collection('statistics').get();
         for (const s of (stats.data || [])) {
             await cloudDB.collection('statistics').where({ _id: s._id }).update({
@@ -256,6 +267,8 @@ async function resetAllData() {
 }
 
 // ===== 工具函数 =====
+
+// 密码哈希（SHA-256 + salt）
 function hashPassword(password, salt) {
     if (!salt) salt = crypto.randomBytes(16).toString('hex');
     const hash = crypto.createHash('sha256').update(password + salt).digest('hex');
@@ -331,6 +344,7 @@ app.get('/api/captcha', (req, res) => {
 app.post('/api/send-code', async (req, res) => {
     const { phone, captchaId, captchaCode } = req.body;
 
+    // 验证图形验证码
     if (!captchaId || !captchaCode) {
         return res.json({ success: false, message: '请先完成图形验证码' });
     }
@@ -396,6 +410,7 @@ app.post('/api/register', async (req, res) => {
     
     await addUser(user);
     
+    // 更新统计
     const stats = await getStatistics();
     await updateStatistics(stats);
     
@@ -412,6 +427,7 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/send-login-code', (req, res) => {
     const { phone, captchaId, captchaCode } = req.body;
 
+    // 验证图形验证码
     if (!captchaId || !captchaCode) {
         return res.json({ success: false, message: '请先完成图形验证码' });
     }
@@ -460,12 +476,15 @@ app.post('/api/login', async (req, res) => {
         return res.json({ success: false, message: '该手机号未注册' });
     }
     
+    // 更新最后登录时间
     await updateUser(user.id, { lastLogin: new Date().toISOString() });
     
+    // 更新统计
     const stats = await getStatistics();
     stats.loginCount = (stats.loginCount || 0) + 1;
     await updateStatistics(stats);
     
+    // 查询该用户之前的测试结果（按时间倒序）
     const allResults = await getTestResults();
     const userResults = allResults
         .filter(r => r.userId === user.id)
@@ -499,6 +518,7 @@ app.post('/api/submit-test', async (req, res) => {
         return res.json({ success: false, message: '测试结果不完整' });
     }
     
+    // 检查用户测试次数（仅对登录用户限制）
     if (userId && userId !== 'anonymous') {
         const allResults = await getTestResults();
         const userTestCount = allResults.filter(r => r.userId === userId).length;
@@ -528,6 +548,7 @@ app.post('/api/submit-test', async (req, res) => {
     
     await addTestResult(result);
     
+    // 更新统计
     const stats = await getStatistics();
     stats.totalTests = (stats.totalTests || 0) + 1;
     await updateStatistics(stats);
@@ -722,6 +743,7 @@ app.post('/api/admin/login', (req, res) => {
         expiresAt: Date.now() + ADMIN_SESSION_TTL
     };
     
+    // 清理过期session
     Object.keys(adminSessions).forEach(t => {
         if (Date.now() > adminSessions[t].expiresAt) {
             delete adminSessions[t];
@@ -750,6 +772,7 @@ app.post('/api/admin/verify', (req, res) => {
         return res.json({ success: false, message: '会话已过期，请重新登录' });
     }
     
+    // 刷新过期时间
     adminSessions[token].expiresAt = Date.now() + ADMIN_SESSION_TTL;
     
     res.json({ success: true, message: '会话有效' });
